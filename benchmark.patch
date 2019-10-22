@@ -1,0 +1,420 @@
+diff -urN benchmark.orig/cas.c benchmark/cas.c
+--- benchmark.orig/cas.c	1969-12-31 19:00:00.000000000 -0500
++++ benchmark/cas.c	2019-10-22 10:31:31.124409717 -0400
+@@ -0,0 +1,26 @@
++#include "queue.h"
++#include "primitives.h"
++
++void queue_init(queue_t * q, int nprocs) {}
++void queue_register(queue_t * q, handle_t * hd, int id)
++{
++  *hd = id + 1;
++}
++
++void enqueue(queue_t * q, handle_t * th, void * val)
++{
++  long p = q->P;
++  while (!CAS(&q->P, &p, p + 1))
++    ;
++}
++
++void * dequeue(queue_t * q, handle_t * th)
++{
++  long c = q->C;
++  while (!CAS(&q->C, &c, c + 1))
++    ;
++  return (void *) (long) *th;
++}
++
++void queue_free(queue_t * q, handle_t * h) {}
++
+diff -urN benchmark.orig/halfhalf.c benchmark/halfhalf.c
+--- benchmark.orig/halfhalf.c	2019-10-22 10:44:25.757993930 -0400
++++ benchmark/halfhalf.c	2019-10-22 10:31:31.124409717 -0400
+@@ -25,7 +25,8 @@
+ 
+   printf("  Number of operations: %ld\n", nops);
+ 
+-  q = align_malloc(PAGE_SIZE, sizeof(queue_t));
++  // FIXME: sizeof(queue_t) varies, allocate 2MB
++  q = align_malloc(PAGE_SIZE, 2097152);
+   queue_init(q, nprocs);
+ 
+   hds = align_malloc(PAGE_SIZE, sizeof(handle_t * [nprocs]));
+@@ -60,7 +61,7 @@
+     else
+       dequeue(q, th);
+ 
+-    delay_exec(&state);
++//    delay_exec(&state);
+   }
+ 
+   return val;
+diff -urN benchmark.orig/lcrq.c benchmark/lcrq.c
+--- benchmark.orig/lcrq.c	2019-10-22 10:44:25.761993916 -0400
++++ benchmark/lcrq.c	2019-10-22 10:31:31.124409717 -0400
+@@ -112,6 +112,7 @@
+ alloc:
+       nrq = handle->next;
+ 
++      void *org_nrq = nrq;
+       if (nrq == NULL) {
+         nrq = align_malloc(PAGE_SIZE, sizeof(RingQueue));
+         init_ring(nrq);
+@@ -127,6 +128,9 @@
+         handle->next = NULL;
+         return;
+       }
++
++      // Did not succeed, free the buffer
++      if (org_nrq == NULL) free(nrq);
+       continue;
+     }
+ 
+diff -urN benchmark.orig/Makefile benchmark/Makefile
+--- benchmark.orig/Makefile	2019-10-22 10:44:25.757993930 -0400
++++ benchmark/Makefile	2019-10-22 10:31:31.124409717 -0400
+@@ -1,8 +1,8 @@
+-TESTS = wfqueue wfqueue0 lcrq ccqueue msqueue faa delay
++TESTS = wfqueue wfqueue0 lcrq ccqueue msqueue faa delay cas scq scq2 scqd ncq
+ 
+-CC = gcc
++CC = gcc-8
+ CFLAGS = -g -Wall -O3 -pthread -D_GNU_SOURCE
+-LDLIBS = -lpthread -lm
++LDLIBS = -ljemalloc -lpthread -lm
+ 
+ ifeq (${VERIFY}, 1)
+ 	CFLAGS += -DVERIFY
+@@ -39,7 +39,12 @@
+ ccqueue: CFLAGS += -DCCQUEUE
+ msqueue: CFLAGS += -DMSQUEUE
+ faa: CFLAGS += -DFAAQ
++cas: CFLAGS += -DFAAQ
+ delay: CFLAGS += -DDELAY
++scq: CFLAGS += -DSCQ
++scqd: CFLAGS += -DSCQD
++scq2: CFLAGS += -DSCQ2
++ncq: CFLAGS += -DNCQ
+ 
+ $(TESTS): harness.o
+ ifeq (${HALFHALF}, 1)
+diff -urN benchmark.orig/ncq.c benchmark/ncq.c
+--- benchmark.orig/ncq.c	1969-12-31 19:00:00.000000000 -0500
++++ benchmark/ncq.c	2019-10-22 10:31:31.124409717 -0400
+@@ -0,0 +1,29 @@
++#include <stdint.h>
++#include <stdlib.h>
++#include <string.h>
++#include "ncq.h"
++
++void queue_init(queue_t * q, int nprocs)
++{
++  lfring_init_empty((struct lfring *) q->ring, NCQ_ORDER);
++}
++
++
++void queue_register(queue_t * q, handle_t * th, int id)
++{
++}
++
++void enqueue(queue_t * q, handle_t * th, void * val)
++{
++  size_t eidx = (size_t) val;
++  lfring_enqueue((struct lfring *) q->ring, NCQ_ORDER, eidx, false);
++}
++
++void * dequeue(queue_t * q, handle_t * th)
++{
++  return (void *) lfring_dequeue((struct lfring *) q->ring, NCQ_ORDER, false);
++}
++
++void queue_free(queue_t * q, handle_t * h)
++{
++}
+diff -urN benchmark.orig/ncq.h benchmark/ncq.h
+--- benchmark.orig/ncq.h	1969-12-31 19:00:00.000000000 -0500
++++ benchmark/ncq.h	2019-10-22 10:31:31.124409717 -0400
+@@ -0,0 +1,23 @@
++#ifndef NCQ_H
++#define NCQ_H
++
++#ifdef NCQ
++
++#include <stddef.h>
++#include "../lfring_naive.h"
++#include "align.h"
++
++#define NCQ_ORDER 16
++#define EMPTY (void *) LFRING_EMPTY
++
++typedef struct _queue_t {
++  char ring[LFRING_SIZE(NCQ_ORDER)];
++} queue_t DOUBLE_CACHE_ALIGNED;
++
++typedef struct _handle_t {
++  int pad;
++} handle_t DOUBLE_CACHE_ALIGNED;
++
++#endif
++
++#endif /* end of include guard: NCQ_H */
+diff -urN benchmark.orig/pairwise.c benchmark/pairwise.c
+--- benchmark.orig/pairwise.c	2019-10-22 10:44:25.761993916 -0400
++++ benchmark/pairwise.c	2019-10-22 10:31:31.124409717 -0400
+@@ -26,7 +26,8 @@
+ 
+   printf("  Number of operations: %ld\n", nops);
+ 
+-  q = align_malloc(PAGE_SIZE, sizeof(queue_t));
++  // FIXME: sizeof(queue_t) varies, allocate 2MB
++  q = align_malloc(PAGE_SIZE, 2097152);
+   queue_init(q, nprocs);
+ 
+   hds = align_malloc(PAGE_SIZE, sizeof(handle_t * [nprocs]));
+@@ -47,10 +48,10 @@
+   int i;
+   for (i = 0; i < nops / nprocs; ++i) {
+     enqueue(q, th, val);
+-    delay_exec(&state);
++//    delay_exec(&state);
+ 
+     val = dequeue(q, th);
+-    delay_exec(&state);
++//    delay_exec(&state);
+   }
+ 
+   return val;
+diff -urN benchmark.orig/queue.h benchmark/queue.h
+--- benchmark.orig/queue.h	2019-10-22 10:44:25.761993916 -0400
++++ benchmark/queue.h	2019-10-22 10:31:31.124409717 -0400
+@@ -28,6 +28,18 @@
+ typedef int queue_t;
+ typedef int handle_t;
+ 
++#elif NCQ
++#include "ncq.h"
++
++#elif SCQ
++#include "scq.h"
++
++#elif SCQ
++#include "scqd.h"
++
++#elif SCQ2
++#include "scq2.h"
++
+ #else
+ #error "Please specify a queue implementation."
+ 
+diff -urN benchmark.orig/README.md benchmark/README.md
+--- benchmark.orig/README.md	2019-10-22 10:44:25.757993930 -0400
++++ benchmark/README.md	2019-10-22 10:43:39.170156671 -0400
+@@ -1,4 +1,9 @@
+-# Fast Wait Free Queue
++# Benchmark
++
++The benchmark is forked from the "Fast Wait Free Queue" paper. The
++original code is
++available [here](https://github.com/chaoran/fast-wait-free-queue).
++See the original README file below.
+ 
+ This is a benchmark framework for evaluating the performance of concurrent queues. Currently, it contains four concurrent queue implementations. They are:
+ 
+diff -urN benchmark.orig/scq2.c benchmark/scq2.c
+--- benchmark.orig/scq2.c	1969-12-31 19:00:00.000000000 -0500
++++ benchmark/scq2.c	2019-10-22 10:31:31.124409717 -0400
+@@ -0,0 +1,34 @@
++#include <stdint.h>
++#include <stdlib.h>
++#include <string.h>
++#include "scq2.h"
++
++void queue_init(queue_t * q, int nprocs)
++{
++  lfring_ptr_init_empty((struct lfring_ptr *) q->ring, SCQ2_ORDER);
++}
++
++
++void queue_register(queue_t * q, handle_t * th, int id)
++{
++}
++
++void enqueue(queue_t * q, handle_t * th, void * val)
++{
++  lfring_ptr_enqueue((struct lfring_ptr *) q->ring, SCQ2_ORDER, val + 1,
++    false, true);
++}
++
++void * dequeue(queue_t * q, handle_t * th)
++{
++  void *ptr;
++  if (!lfring_ptr_dequeue((struct lfring_ptr *) q->ring, SCQ2_ORDER,
++      &ptr, false))
++    return EMPTY;
++  ptr--;
++  return ptr;
++}
++
++void queue_free(queue_t * q, handle_t * h)
++{
++}
+diff -urN benchmark.orig/scq2.h benchmark/scq2.h
+--- benchmark.orig/scq2.h	1969-12-31 19:00:00.000000000 -0500
++++ benchmark/scq2.h	2019-10-22 10:31:31.124409717 -0400
+@@ -0,0 +1,23 @@
++#ifndef SCQ2_H
++#define SCQ2_H
++
++#ifdef SCQ2
++
++#include <stddef.h>
++#include "../lfring_cas2.h"
++#include "align.h"
++
++#define SCQ2_ORDER 15
++#define EMPTY (void *) -1
++
++typedef struct _queue_t {
++  char ring[LFRING_PTR_SIZE(SCQ2_ORDER)];
++} queue_t DOUBLE_CACHE_ALIGNED;
++
++typedef struct _handle_t {
++  int pad;
++} handle_t DOUBLE_CACHE_ALIGNED;
++
++#endif
++
++#endif /* end of include guard: SCQ_H */
+diff -urN benchmark.orig/scq.c benchmark/scq.c
+--- benchmark.orig/scq.c	1969-12-31 19:00:00.000000000 -0500
++++ benchmark/scq.c	2019-10-22 10:31:31.124409717 -0400
+@@ -0,0 +1,29 @@
++#include <stdint.h>
++#include <stdlib.h>
++#include <string.h>
++#include "scq.h"
++
++void queue_init(queue_t * q, int nprocs)
++{
++  lfring_init_empty((struct lfring *) q->ring, SCQ_ORDER);
++}
++
++
++void queue_register(queue_t * q, handle_t * th, int id)
++{
++}
++
++void enqueue(queue_t * q, handle_t * th, void * val)
++{
++  size_t eidx = (size_t) val;
++  lfring_enqueue((struct lfring *) q->ring, SCQ_ORDER, eidx, false);
++}
++
++void * dequeue(queue_t * q, handle_t * th)
++{
++  return (void *) lfring_dequeue((struct lfring *) q->ring, SCQ_ORDER, false);
++}
++
++void queue_free(queue_t * q, handle_t * h)
++{
++}
+diff -urN benchmark.orig/scqd.c benchmark/scqd.c
+--- benchmark.orig/scqd.c	1969-12-31 19:00:00.000000000 -0500
++++ benchmark/scqd.c	2019-10-22 10:31:31.128409708 -0400
+@@ -0,0 +1,39 @@
++#include <stdint.h>
++#include <stdlib.h>
++#include <string.h>
++#include "scqd.h"
++
++void queue_init(queue_t * q, int nprocs)
++{
++  lfring_init_empty((struct lfring *) q->aq, SCQD_ORDER);
++  lfring_init_fill((struct lfring *) q->fq, 0, 1U << SCQD_ORDER, SCQD_ORDER);
++}
++
++
++void queue_register(queue_t * q, handle_t * th, int id)
++{
++}
++
++void enqueue(queue_t * q, handle_t * th, void * val)
++{
++  size_t eidx;
++  eidx = lfring_dequeue((struct lfring *) q->fq, SCQD_ORDER, true);
++  if (eidx == LFRING_EMPTY) return;
++  q->val[eidx] = val;
++  lfring_enqueue((struct lfring *) q->aq, SCQD_ORDER, eidx, false);
++}
++
++void * dequeue(queue_t * q, handle_t * th)
++{
++  size_t eidx;
++  void *val;
++  eidx = lfring_dequeue((struct lfring *) q->aq, SCQD_ORDER, false);
++  if (eidx == LFRING_EMPTY) return EMPTY;
++  val = q->val[eidx];
++  lfring_enqueue((struct lfring *) q->fq, SCQD_ORDER, eidx, true);
++  return val;
++}
++
++void queue_free(queue_t * q, handle_t * h)
++{
++}
+diff -urN benchmark.orig/scqd.h benchmark/scqd.h
+--- benchmark.orig/scqd.h	1969-12-31 19:00:00.000000000 -0500
++++ benchmark/scqd.h	2019-10-22 10:31:31.128409708 -0400
+@@ -0,0 +1,25 @@
++#ifndef SCQD_H
++#define SCQD_H
++
++#ifdef SCQD
++
++#include <stddef.h>
++#include "../lfring_cas1.h"
++#include "align.h"
++
++#define SCQD_ORDER 16
++#define EMPTY (void *) LFRING_EMPTY
++
++typedef struct _queue_t {
++  char aq[LFRING_SIZE(SCQD_ORDER)];
++  char fq[LFRING_SIZE(SCQD_ORDER)];
++  void  *val[(1U << SCQD_ORDER)];
++} queue_t DOUBLE_CACHE_ALIGNED;
++
++typedef struct _handle_t {
++  int pad;
++} handle_t DOUBLE_CACHE_ALIGNED;
++
++#endif
++
++#endif /* end of include guard: SCQD_H */
+diff -urN benchmark.orig/scq.h benchmark/scq.h
+--- benchmark.orig/scq.h	1969-12-31 19:00:00.000000000 -0500
++++ benchmark/scq.h	2019-10-22 10:31:31.124409717 -0400
+@@ -0,0 +1,23 @@
++#ifndef SCQ_H
++#define SCQ_H
++
++#ifdef SCQ
++
++#include <stddef.h>
++#include "../lfring_cas1.h"
++#include "align.h"
++
++#define SCQ_ORDER 15
++#define EMPTY (void *) LFRING_EMPTY
++
++typedef struct _queue_t {
++  char ring[LFRING_SIZE(SCQ_ORDER)];
++} queue_t DOUBLE_CACHE_ALIGNED;
++
++typedef struct _handle_t {
++  int pad;
++} handle_t DOUBLE_CACHE_ALIGNED;
++
++#endif
++
++#endif /* end of include guard: SCQ_H */

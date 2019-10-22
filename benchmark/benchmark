@@ -1,0 +1,26 @@
+#!/bin/bash
+
+if [ -z "$TESTS" ]; then
+  TESTS=(wfqueue wfqueue0 faa lcrq ccqueue msqueue delay)
+else
+  IFS=':' read -r -a TESTS <<< "${TESTS}"
+fi
+
+if [ -z "$PROCS" ]; then
+  PROCS=(1 2 4 8)
+else
+  IFS=':' read -r -a PROCS <<< "${PROCS}"
+fi
+
+printf '#! Host: %s\n' $( hostname )
+printf '#! Benchmarks: %s\n' "${TESTS[*]}"
+printf '#! Threads: %s\n' "${PROCS[*]}"
+
+for j in ${PROCS[@]}; do
+  printf '%d' $j
+  for i in ${TESTS[@]}; do
+    echo -ne \
+      "$(./driver ./$i $j | tail -n 1 | awk '{printf " %.2f %.2f", $3, $5}')"
+  done
+  printf '\n'
+done
