@@ -25,8 +25,8 @@ void init(int nprocs, int logn) {
 
   printf("  Number of operations: %ld\n", nops);
 
-  // FIXME: sizeof(queue_t) varies, allocate 2MB
-  q = align_malloc(PAGE_SIZE, 2097152);
+  // FIXME: sizeof(queue_t) varies, allocate 4MB
+  q = align_malloc(PAGE_SIZE, 4194304);
   queue_init(q, nprocs);
 
   hds = align_malloc(PAGE_SIZE, sizeof(handle_t * [nprocs]));

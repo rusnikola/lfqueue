@@ -1,6 +1,7 @@
 TESTS = wfqueue wfqueue0 lcrq ccqueue msqueue faa delay cas scq scq2 scqd ncq
 
-CC = gcc-8
+# if using clang, please also specify -mcx16 for x86-64
+CC = gcc
 CFLAGS = -g -Wall -O3 -pthread -D_GNU_SOURCE
 LDLIBS = -ljemalloc -lpthread -lm
 
