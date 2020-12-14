@@ -36,8 +36,8 @@ diff -urN benchmark.orig/halfhalf.c benchmark/halfhalf.c
    printf("  Number of operations: %ld\n", nops);
  
 -  q = align_malloc(PAGE_SIZE, sizeof(queue_t));
-+  // FIXME: sizeof(queue_t) varies, allocate 2MB
-+  q = align_malloc(PAGE_SIZE, 2097152);
++  // FIXME: sizeof(queue_t) varies, allocate 4MB
++  q = align_malloc(PAGE_SIZE, 4194304);
    queue_init(q, nprocs);
  
    hds = align_malloc(PAGE_SIZE, sizeof(handle_t * [nprocs]));
@@ -74,19 +74,19 @@ diff -urN benchmark.orig/lcrq.c benchmark/lcrq.c
 diff -urN benchmark.orig/Makefile benchmark/Makefile
 --- benchmark.orig/Makefile	2019-10-22 10:44:25.757993930 -0400
 +++ benchmark/Makefile	2019-10-22 10:31:31.124409717 -0400
-@@ -1,8 +1,8 @@
+@@ -1,8 +1,9 @@
 -TESTS = wfqueue wfqueue0 lcrq ccqueue msqueue faa delay
 +TESTS = wfqueue wfqueue0 lcrq ccqueue msqueue faa delay cas scq scq2 scqd ncq
  
--CC = gcc
-+CC = gcc-8
++# if using clang, please also specify -mcx16 for x86-64
+ CC = gcc
  CFLAGS = -g -Wall -O3 -pthread -D_GNU_SOURCE
 -LDLIBS = -lpthread -lm
 +LDLIBS = -ljemalloc -lpthread -lm
  
  ifeq (${VERIFY}, 1)
  	CFLAGS += -DVERIFY
-@@ -39,7 +39,12 @@
+@@ -39,7 +40,12 @@
  ccqueue: CFLAGS += -DCCQUEUE
  msqueue: CFLAGS += -DMSQUEUE
  faa: CFLAGS += -DFAAQ
@@ -167,8 +167,8 @@ diff -urN benchmark.orig/pairwise.c benchmark/pairwise.c
    printf("  Number of operations: %ld\n", nops);
  
 -  q = align_malloc(PAGE_SIZE, sizeof(queue_t));
-+  // FIXME: sizeof(queue_t) varies, allocate 2MB
-+  q = align_malloc(PAGE_SIZE, 2097152);
++  // FIXME: sizeof(queue_t) varies, allocate 4MB
++  q = align_malloc(PAGE_SIZE, 4194304);
    queue_init(q, nprocs);
  
    hds = align_malloc(PAGE_SIZE, sizeof(handle_t * [nprocs]));
