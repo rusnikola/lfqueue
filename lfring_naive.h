@@ -140,8 +140,8 @@ static inline lfatomic_t lfring_head(struct lfring * ring)
 	return __atomic_load_n(&q->head, __ATOMIC_ACQUIRE);
 }
 
-static inline size_t __lfring_enqueue(struct lfring * ring,
-		size_t order, size_t eidx, lfring_process_t process, void * data)
+static inline size_t lfring_enqueue(struct lfring * ring,
+		size_t order, size_t eidx, bool nonempty)
 {
 	struct __lfring * q = (struct __lfring *) ring;
 	size_t n = lfring_pow2(order);
@@ -172,23 +172,6 @@ start_over:
 				goto start_over;
 			}
 
-			/* Process the previous entry. */
-			if (process) {
-				size_t pidx = __lfring_map(tail - 1, order, n);
-				if (!process(ring, (size_t)
-						__atomic_load_n(&q->array[pidx], __ATOMIC_ACQUIRE) & (n - 1),
-						data)) {
-					lfatomic_t old_entry = entry;
-
-					/* Check it is still an empty entry. */
-					entry = __atomic_load_n(&q->array[tidx], __ATOMIC_ACQUIRE);
-					if (old_entry == entry) {
-						return entry & (n - 1);
-					}
-					continue;
-				}
-			}
-
 			/* An empty entry. */
 			if (__atomic_compare_exchange_n(&q->array[tidx],
 					&entry, __LFMERGE(tcycle, eidx), 0,
@@ -200,12 +183,6 @@ start_over:
 			}
 		}
 	}
-}
-
-static inline size_t lfring_enqueue(struct lfring * ring,
-		size_t order, size_t eidx, bool nonempty)
-{
-	return __lfring_enqueue(ring, order, eidx, NULL, NULL);
 }
 
 static inline size_t lfring_dequeue(struct lfring * ring, size_t order,
