@@ -6,7 +6,7 @@
 void queue_init(queue_t * q, int nprocs)
 {
   lfring_init_empty((struct lfring *) q->aq, SCQD_ORDER);
-  lfring_init_fill((struct lfring *) q->fq, 0, 1U << SCQD_ORDER, SCQD_ORDER);
+  lfring_init_full((struct lfring *) q->fq, SCQD_ORDER);
 }
 
 

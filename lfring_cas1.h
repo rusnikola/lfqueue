@@ -1,4 +1,9 @@
-/*-
+/* ----------------------------------------------------------------------------
+ *
+ * Dual 2-BSD/MIT license. Either or both licenses can be used.
+ *
+ * ----------------------------------------------------------------------------
+ *
  * Copyright (c) 2019 Ruslan Nikolaev.  All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -21,6 +26,30 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
+ *
+ * ----------------------------------------------------------------------------
+ *
+ * Copyright (c) 2019 Ruslan Nikolaev
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a
+ * copy of this software and associated documentation files (the "Software"),
+ * to deal in the Software without restriction, including without limitation
+ * the rights to use, copy, modify, merge, publish, distribute, sublicense,
+ * and/or sell copies of the Software, and to permit persons to whom the
+ * Software is furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+ * IN THE SOFTWARE.
+ *
+ * ----------------------------------------------------------------------------
  */
 
 #ifndef __LFRING_H
@@ -53,17 +82,22 @@
 #define __lfring_cmp(x, op, y)	((lfsatomic_t) ((x) - (y)) op 0)
 
 #if LFRING_MIN != 0
-static inline size_t __lfring_map(lfatomic_t idx, size_t order, size_t n)
+static inline size_t __lfring_raw_map(lfatomic_t idx, size_t order, size_t n)
 {
-	return (size_t) (((idx & (n - 1)) >> (order + 1 - LFRING_MIN)) |
+	return (size_t) (((idx & (n - 1)) >> (order - LFRING_MIN)) |
 			((idx << LFRING_MIN) & (n - 1)));
 }
 #else
-static inline size_t __lfring_map(lfatomic_t idx, size_t order, size_t n)
+static inline size_t __lfring_raw_map(lfatomic_t idx, size_t order, size_t n)
 {
 	return (size_t) (idx & (n - 1));
 }
 #endif
+
+static inline size_t __lfring_map(lfatomic_t idx, size_t order, size_t n)
+{
+	return __lfring_raw_map(idx, order + 1, n);
+}
 
 #define __lfring_threshold3(half, n) ((long) ((half) + (n) - 1))
 
@@ -92,6 +126,21 @@ static inline void lfring_init_empty(struct lfring * ring, size_t order)
 	atomic_init(&q->head, 0);
 	atomic_init(&q->threshold, -1);
 	atomic_init(&q->tail, 0);
+}
+
+static inline void lfring_init_full(struct lfring * ring, size_t order)
+{
+	struct __lfring * q = (struct __lfring *) ring;
+	size_t i, half = lfring_pow2(order), n = half * 2;
+
+	for (i = 0; i != half; i++)
+		atomic_init(&q->array[__lfring_map(i, order, n)], __lfring_raw_map(n + i, order, half));
+	for (; i != n; i++)
+		atomic_init(&q->array[__lfring_map(i, order, n)], (lfsatomic_t) -1);
+
+	atomic_init(&q->head, 0);
+	atomic_init(&q->threshold, __lfring_threshold3(half, n));
+	atomic_init(&q->tail, half);
 }
 
 static inline void lfring_init_fill(struct lfring * ring,
@@ -152,8 +201,8 @@ static inline void __lfring_catchup(struct lfring * ring,
 
 	while (!atomic_compare_exchange_weak_explicit(&q->tail, &tail, head,
 			memory_order_acq_rel, memory_order_acquire)) {
-		head = atomic_load(&q->head);
-		tail = atomic_load(&q->tail);
+		head = atomic_load_explicit(&q->head, memory_order_acquire);
+		tail = atomic_load_explicit(&q->tail, memory_order_acquire);
 		if (__lfring_cmp(tail, >=, head))
 			break;
 	}

@@ -12,7 +12,7 @@
 
 	Copyright (c) 2019 Ruslan Nikolaev. All Rights Reserved.
 
-	The SCQ/SCQD/SCQ2/NCQ code is distributed under the 2-Clause BSD license.
+	The SCQ/SCQD/SCQ2/NCQ code is dual-licensed under 2-Clause BSD and MIT.
 
 * Description
 
