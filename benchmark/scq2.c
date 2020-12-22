@@ -11,12 +11,13 @@ void queue_init(queue_t * q, int nprocs)
 
 void queue_register(queue_t * q, handle_t * th, int id)
 {
+  lfring_ptr_init_lhead(&th->lhead, SCQ2_ORDER);
 }
 
 void enqueue(queue_t * q, handle_t * th, void * val)
 {
   lfring_ptr_enqueue((struct lfring_ptr *) q->ring, SCQ2_ORDER, val + 1,
-    false, true);
+    false, false, &th->lhead);
 }
 
 void * dequeue(queue_t * q, handle_t * th)

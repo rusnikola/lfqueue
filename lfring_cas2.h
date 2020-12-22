@@ -136,8 +136,13 @@ static inline void lfring_ptr_init_empty(struct lfring_ptr * ring, size_t order)
 	atomic_init(&q->tail, n);
 }
 
+static inline void lfring_ptr_init_lhead(lfatomic_t *lhead, size_t order)
+{
+	*lhead = lfring_pow2(order + 1);
+}
+
 static inline bool lfring_ptr_enqueue(struct lfring_ptr * ring, size_t order,
-		void * ptr, bool nonempty, bool nonfull)
+		void * ptr, bool nonempty, bool nonfull, lfatomic_t *lhead)
 {
 	struct __lfring_ptr * q = (struct __lfring_ptr *) ring;
 	size_t tidx, n = lfring_pow2(order + 1);
@@ -146,8 +151,11 @@ static inline bool lfring_ptr_enqueue(struct lfring_ptr * ring, size_t order,
 
 	if (!nonfull) {
 		tail = atomic_load(&q->tail);
-		if (tail >= atomic_load(&q->head) + n)
-			return false;
+		if (tail >= *lhead + n) {
+			*lhead = atomic_load(&q->head);
+			if (tail >= *lhead + n)
+				return false;
+		}
 	}
 
 	while (1) {
@@ -174,8 +182,11 @@ retry:
 		}
 
 		if (!nonfull) {
-			if (tail + 1 >= atomic_load(&q->head) + n)
-				return false;
+			if (tail + 1 >= *lhead + n) {
+				*lhead = atomic_load(&q->head);
+				if (tail + 1 >= *lhead + n)
+					return false;
+			}
 		}
 	}
 }
