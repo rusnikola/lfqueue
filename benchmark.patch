@@ -1,3 +1,15 @@
+diff -urN benchmark.orig/align.h benchmark/align.h
+--- benchmark.orig/align.h	2020-12-22 17:17:27.685566626 -0500
++++ benchmark/align.h	2020-12-22 17:14:37.945420646 -0500
+@@ -16,7 +16,7 @@
+ 
+   int ret = posix_memalign(&ptr, align, size);
+   if (ret != 0) {
+-    fprintf(stderr, strerror(ret));
++    fprintf(stderr, "error: %s\n", strerror(ret));
+     abort();
+   }
+ 
 diff -urN benchmark.orig/cas.c benchmark/cas.c
 --- benchmark.orig/cas.c	1969-12-31 19:00:00.000000000 -0500
 +++ benchmark/cas.c	2019-10-22 10:31:31.124409717 -0400

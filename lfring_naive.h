@@ -56,6 +56,7 @@
 #define __LFRING_H	1
 
 #include <stdbool.h>
+#include <stdatomic.h>
 #include <inttypes.h>
 #include <sys/types.h>
 
@@ -96,13 +97,12 @@ static inline size_t lfring_pow2(size_t order)
 }
 
 struct __lfring {
-	__attribute__ ((aligned(LF_CACHE_BYTES))) lfatomic_t head;
-	__attribute__ ((aligned(LF_CACHE_BYTES))) lfatomic_t tail;
-	__attribute__ ((aligned(LF_CACHE_BYTES))) lfatomic_t array[1];
+	__attribute__ ((aligned(LF_CACHE_BYTES))) _Atomic(lfatomic_t) head;
+	__attribute__ ((aligned(LF_CACHE_BYTES))) _Atomic(lfatomic_t) tail;
+	__attribute__ ((aligned(LF_CACHE_BYTES))) _Atomic(lfatomic_t) array[1];
 };
 
 struct lfring;
-typedef bool (*lfring_process_t) (struct lfring *, size_t, void *);
 
 static inline void lfring_init_empty(struct lfring * ring, size_t order)
 {
@@ -166,7 +166,7 @@ static inline void lfring_init_mark(struct lfring * ring, size_t order)
 static inline lfatomic_t lfring_head(struct lfring * ring)
 {
 	struct __lfring * q = (struct __lfring *) ring;
-	return __atomic_load_n(&q->head, __ATOMIC_ACQUIRE);
+	return atomic_load_explicit(&q->head, memory_order_acquire);
 }
 
 static inline size_t lfring_enqueue(struct lfring * ring,
@@ -177,20 +177,20 @@ static inline size_t lfring_enqueue(struct lfring * ring,
 	lfatomic_t tail;
 
 start_over:
-	tail = __atomic_load_n(&q->tail, __ATOMIC_ACQUIRE);
+	tail = atomic_load_explicit(&q->tail, memory_order_acquire);
 
 	while (1) {
 		lfatomic_t tcycle = tail & ~(n - 1);
 		size_t tidx = __lfring_map(tail, order, n);
-		lfatomic_t entry = __atomic_load_n(&q->array[tidx], __ATOMIC_ACQUIRE);
+		lfatomic_t entry = atomic_load_explicit(&q->array[tidx], memory_order_acquire);
 
 		while (1) {
 			lfatomic_t ecycle = entry & ~(n - 1);
 
 			if (ecycle == tcycle) {
 				/* Advance the tail pointer. */
-				if (__atomic_compare_exchange_n(&q->tail, &tail,
-						tail + 1, 0, __ATOMIC_ACQ_REL, __ATOMIC_ACQUIRE)) {
+				if (atomic_compare_exchange_strong_explicit(&q->tail, &tail,
+						tail + 1, memory_order_acq_rel, memory_order_acquire)) {
 					tail++;
 				}
 				break;
@@ -202,12 +202,12 @@ start_over:
 			}
 
 			/* An empty entry. */
-			if (__atomic_compare_exchange_n(&q->array[tidx],
-					&entry, __LFMERGE(tcycle, eidx), 0,
-					__ATOMIC_ACQ_REL, __ATOMIC_ACQUIRE)) {
+			if (atomic_compare_exchange_strong_explicit(&q->array[tidx],
+					&entry, __LFMERGE(tcycle, eidx),
+					memory_order_acq_rel, memory_order_acquire)) {
 				/* Try to advance the tail pointer. */
-				__atomic_compare_exchange_n(&q->tail, &tail, tail + 1, 1,
-								__ATOMIC_ACQ_REL, __ATOMIC_ACQUIRE);
+				atomic_compare_exchange_weak_explicit(&q->tail, &tail, tail + 1,
+					memory_order_acq_rel, memory_order_acquire);
 				return entry & (n - 1);
 			}
 		}
@@ -222,12 +222,12 @@ static inline size_t lfring_dequeue(struct lfring * ring, size_t order,
 	lfatomic_t head, entry;
 
 start_over:
-	head = __atomic_load_n(&q->head, __ATOMIC_ACQUIRE);
+	head = atomic_load_explicit(&q->head, memory_order_acquire);
 
 	do {
 		lfatomic_t ecycle, hcycle = head & ~(n - 1);
 		size_t hidx = __lfring_map(head, order, n);
-		entry = __atomic_load_n(&q->array[hidx], __ATOMIC_ACQUIRE);
+		entry = atomic_load_explicit(&q->array[hidx], memory_order_acquire);
 		ecycle = entry & ~(n - 1);
 		if (ecycle != hcycle) {
 			/* Wrapping around. */
@@ -236,8 +236,8 @@ start_over:
 			}
 			goto start_over;
 		}
-	} while (!__atomic_compare_exchange_n(&q->head, &head, head + 1, 1,
-							__ATOMIC_ACQ_REL, __ATOMIC_ACQUIRE));
+	} while (!atomic_compare_exchange_weak_explicit(&q->head, &head, head + 1,
+				memory_order_acq_rel, memory_order_acquire));
 
 	return (size_t) (entry & (n - 1));
 }

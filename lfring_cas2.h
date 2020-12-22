@@ -141,7 +141,7 @@ static inline bool lfring_ptr_enqueue(struct lfring_ptr * ring, size_t order,
 {
 	struct __lfring_ptr * q = (struct __lfring_ptr *) ring;
 	size_t tidx, n = lfring_pow2(order + 1);
-	lfatomic_t tail, head, entry, ecycle, tcycle;
+	lfatomic_t tail, entry, ecycle, tcycle;
 	lfatomic_big_t pair;
 
 	if (!nonfull) {

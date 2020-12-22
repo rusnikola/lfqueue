@@ -16,7 +16,7 @@ static inline void * align_malloc(size_t align, size_t size)
 
   int ret = posix_memalign(&ptr, align, size);
   if (ret != 0) {
-    fprintf(stderr, strerror(ret));
+    fprintf(stderr, "error: %s\n", strerror(ret));
     abort();
   }
 
