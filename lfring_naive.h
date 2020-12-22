@@ -149,26 +149,6 @@ static inline void lfring_init_fill(struct lfring * ring,
 	q->tail = e;
 }
 
-/* An equivalent to lfring_init_empty but avoids the reserved index 0. */
-static inline void lfring_init_mark(struct lfring * ring, size_t order)
-{
-	struct __lfring * q = (struct __lfring *) ring;
-	size_t i, n = lfring_pow2(order);
-
-	for (i = 0; i != n; i++) {
-		q->array[i] = n - 1;
-	}
-
-	q->head = n;
-	q->tail = n;
-}
-
-static inline lfatomic_t lfring_head(struct lfring * ring)
-{
-	struct __lfring * q = (struct __lfring *) ring;
-	return atomic_load_explicit(&q->head, memory_order_acquire);
-}
-
 static inline size_t lfring_enqueue(struct lfring * ring,
 		size_t order, size_t eidx, bool nonempty)
 {
