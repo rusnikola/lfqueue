@@ -56,6 +56,7 @@
 #define __BITS_LF_C11_H 1
 
 #include <stdatomic.h>
+#include <stdint.h>
 
 #define LFATOMIC(x)				_Atomic(x)
 #define LFATOMIC_VAR_INIT(x)	ATOMIC_VAR_INIT(x)
@@ -71,7 +72,7 @@ static inline lfatomic_big_t __lfaba_load(_Atomic(lfatomic_big_t) * obj,
 {
 #if __LFLOAD_SPLIT(LFATOMIC_BIG_WIDTH) == 1
 	lfatomic_big_t res;
-	_Atomic(lfatomic_t) * hobj = (_Atomic(lfatomic_t) *) obj;
+	_Atomic(lfatomic_t) * hobj = (_Atomic(lfatomic_t) *) ((uintptr_t) obj);
 	lfatomic_t * hres = (lfatomic_t *) &res;
 
 	hres[0] = atomic_load_explicit(hobj, order);
@@ -83,16 +84,16 @@ static inline lfatomic_big_t __lfaba_load(_Atomic(lfatomic_big_t) * obj,
 }
 
 static inline bool __lfaba_cmpxchg_weak(_Atomic(lfatomic_big_t) * obj,
-	lfatomic_big_t * expected, lfatomic_big_t desired,
-	memory_order succ, memory_order fail)
+		lfatomic_big_t * expected, lfatomic_big_t desired,
+		memory_order succ, memory_order fail)
 {
 	return atomic_compare_exchange_weak_explicit(obj, expected, desired,
 					succ, fail);
 }
 
 static inline bool __lfaba_cmpxchg_strong(_Atomic(lfatomic_big_t) * obj,
-	lfatomic_big_t * expected, lfatomic_big_t desired,
-	memory_order succ, memory_order fail)
+		lfatomic_big_t * expected, lfatomic_big_t desired,
+		memory_order succ, memory_order fail)
 {
 	return atomic_compare_exchange_strong_explicit(obj, expected, desired,
 					succ, fail);
