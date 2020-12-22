@@ -56,6 +56,7 @@
 #define __BITS_LF_CONFIG_H	1
 
 #include <inttypes.h>
+#include <stdint.h>
 
 /* For the following architectures, it is cheaper to use split (word-atomic)
    loads whenever possible. */

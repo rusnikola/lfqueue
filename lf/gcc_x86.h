@@ -56,6 +56,7 @@
 #define __BITS_LF_GCC_X86_H 1
 
 #include <stdatomic.h>
+#include <stdint.h>
 
 #define LFATOMIC(x)				_Atomic(x)
 #define LFATOMIC_VAR_INIT(x)	ATOMIC_VAR_INIT(x)
@@ -63,13 +64,13 @@
 static inline void __lfbig_init(_Atomic(lfatomic_big_t) * obj,
 		lfatomic_big_t val)
 {
-	*((volatile lfatomic_big_t *) obj) = val;
+	*((volatile lfatomic_big_t *) ((uintptr_t) obj)) = val;
 }
 
 static inline lfatomic_big_t __lfbig_load(_Atomic(lfatomic_big_t) * obj,
 		memory_order order)
 {
-	return *((volatile lfatomic_big_t *) obj);
+	return *((volatile lfatomic_big_t *) ((uintptr_t) obj));
 }
 
 static inline bool __lfbig_cmpxchg_strong(_Atomic(lfatomic_big_t) * obj,
