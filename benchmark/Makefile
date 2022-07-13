@@ -1,4 +1,4 @@
-TESTS = wfqueue wfqueue0 lcrq ccqueue msqueue faa delay cas scq scq2 scqd ncq
+TESTS = wfqueue wfqueue0 lcrq ccqueue msqueue faa delay cas scq scq2 scqd ncq wcq
 
 # if using clang, please also specify -mcx16 for x86-64
 CC = gcc
@@ -46,6 +46,7 @@ scq: CFLAGS += -DSCQ
 scqd: CFLAGS += -DSCQD
 scq2: CFLAGS += -DSCQ2
 ncq: CFLAGS += -DNCQ
+wcq: CFLAGS += -DWCQ
 
 $(TESTS): harness.o
 ifeq (${HALFHALF}, 1)

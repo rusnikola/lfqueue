@@ -83,6 +83,12 @@ static inline lfatomic_big_t __lfaba_load(_Atomic(lfatomic_big_t) * obj,
 #endif
 }
 
+static inline lfatomic_big_t __lfaba_load_atomic(_Atomic(lfatomic_big_t) * obj,
+		memory_order order)
+{
+	return atomic_load_explicit(obj, order);
+}
+
 static inline bool __lfaba_cmpxchg_weak(_Atomic(lfatomic_big_t) * obj,
 		lfatomic_big_t * expected, lfatomic_big_t desired,
 		memory_order succ, memory_order fail)

@@ -95,6 +95,14 @@ static inline bool __lfbig_cmpxchg_strong(_Atomic(lfatomic_big_t) * obj,
 	return result;
 }
 
+static inline lfatomic_big_t __lfbig_load_atomic(_Atomic(lfatomic_big_t) * obj,
+		memory_order order)
+{
+	lfatomic_big_t value = 0;
+	__lfbig_cmpxchg_strong(obj, &value, 0, order, order);
+	return value;
+}
+
 static inline bool __lfbig_cmpxchg_weak(_Atomic(lfatomic_big_t) * obj,
 		lfatomic_big_t * expected, lfatomic_big_t desired,
 		memory_order succ, memory_order fail)
@@ -115,6 +123,7 @@ static inline lfatomic_big_t __lfbig_fetch_and(_Atomic(lfatomic_big_t) * obj,
 
 #define __lfaba_init			__lfbig_init
 #define __lfaba_load			__lfbig_load
+#define __lfaba_load_atomic		__lfbig_load_atomic
 #define __lfaba_cmpxchg_weak	__lfbig_cmpxchg_weak
 #define __lfaba_cmpxchg_strong	__lfbig_cmpxchg_strong
 #define __lfaba_fetch_and		__lfbig_fetch_and

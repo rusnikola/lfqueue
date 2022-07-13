@@ -2,6 +2,12 @@
 
 * Publications
 
+	wCQ: A Fast Wait-Free Queue with Bounded Memory Usage.
+	In Proceedings of the 34th ACM Symposium on Parallelism in Algorithms
+	and Architectures (SPAA'22). Philadelphia, PA, USA.
+
+	[Paper](https://dl.acm.org/doi/pdf/10.1145/3490148.3538572)
+
 	A Scalable, Portable, and Memory-Efficient Lock-Free FIFO Queue.
 	In Proceedings of the 33rd International Symposium on DIStributed
 	Computing (DISC'19). Budapest, Hungary.
@@ -10,9 +16,9 @@
 
 * Source code license
 
-	Copyright (c) 2019 Ruslan Nikolaev. All Rights Reserved.
+	Copyright (c) 2019, 2021 Ruslan Nikolaev. All Rights Reserved.
 
-	The SCQ/SCQD/SCQ2/NCQ code is dual-licensed under 2-Clause BSD and MIT.
+	The SCQ/SCQD/SCQ2/NCQ/wCQ code is dual-licensed under 2-Clause BSD and MIT.
 
 * Description
 
@@ -25,8 +31,9 @@
 	details.
 
 	Both GCC and LLVM should be supported. Older versions may lack
-	support for lfring\_cas2.h and/or have suboptimal performance.
-	We have tested the code with GCC 8.3.0 and LLVM 7.0.1.
+	support for lfring\_cas2.h and wfring\_cas2.h and/or have
+	suboptimal performance. We have tested the code with
+	GCC 8.3.0+ and LLVM 7.0.1+.
 
 * CAS
 
@@ -52,3 +59,9 @@
 
 	This is a version which stores pointers through double-width CAS
 	(certain platforms such as x86-64). The implementation is in lfring\_cas2.h.
+
+* wCQ
+
+	An implementation of a wait-free version of SCQ, which uses double-width
+	CAS (certain platforms such as x86-64). The implementation is in
+	wfring\_cas2.h.
