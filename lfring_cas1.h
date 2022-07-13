@@ -134,7 +134,7 @@ static inline void lfring_init_full(struct lfring * ring, size_t order)
 	size_t i, half = lfring_pow2(order), n = half * 2;
 
 	for (i = 0; i != half; i++)
-		atomic_init(&q->array[__lfring_map(i, order, n)], __lfring_raw_map(n + i, order, half));
+		atomic_init(&q->array[__lfring_map(i, order, n)], n + __lfring_raw_map(i, order, half));
 	for (; i != n; i++)
 		atomic_init(&q->array[__lfring_map(i, order, n)], (lfsatomic_t) -1);
 
