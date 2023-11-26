@@ -260,7 +260,7 @@ static inline bool __wfring_slow_inc(_Atomic(lfatomic_big_t) * global,
 		if (atomic_load(local) & __WFRING_FIN)
 			return false;
 		cnt = __wfring_load_global_help_phase2(global, gp);
-		if (!atomic_compare_exchange_strong(local, &prev, cnt + __WFRING_INC)) {
+		if (!atomic_compare_exchange_strong(local, prev, cnt + __WFRING_INC)) {
 			if (*prev & __WFRING_FIN) return false;
 			if (!(*prev & __WFRING_INC)) return true;
 			cnt = *prev - __WFRING_INC;
