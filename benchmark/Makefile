@@ -1,4 +1,4 @@
-TESTS = wfqueue wfqueue0 lcrq ccqueue msqueue faa delay cas scq scq2 scqd ncq wcq
+TESTS = wfqueue wfqueue0 lcrq ccqueue msqueue faa delay cas scq scq2 scq-o scqd ncq wcq
 
 # if using clang, please also specify -mcx16 for x86-64
 CC = gcc
@@ -45,6 +45,7 @@ delay: CFLAGS += -DDELAY
 scq: CFLAGS += -DSCQ
 scqd: CFLAGS += -DSCQD
 scq2: CFLAGS += -DSCQ2
+scq-o: CFLAGS += -DSCQ_O
 ncq: CFLAGS += -DNCQ
 wcq: CFLAGS += -DWCQ
 

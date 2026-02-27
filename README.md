@@ -14,11 +14,14 @@
 
 	[Paper](http://drops.dagstuhl.de/opus/volltexte/2019/11335/pdf/LIPIcs-DISC-2019-28.pdf)
 
+* Original author
+
+	Ruslan Nikolaev
+
 * Source code license
 
-	Copyright (c) 2019, 2021 Ruslan Nikolaev. All Rights Reserved.
-
-	The SCQ/SCQD/SCQ2/NCQ/wCQ code is dual-licensed under 2-Clause BSD and MIT.
+	Please see the sources files. The SCQ/SCQD/SCQ2/SCQ-O/NCQ/wCQ code
+	is dual-licensed under 2-Clause BSD and MIT.
 
 * Description
 
@@ -59,6 +62,11 @@
 
 	This is a version which stores pointers through double-width CAS
 	(certain platforms such as x86-64). The implementation is in lfring\_cas2.h.
+
+* SCQ-O
+
+	This is a version which optimizes SCQD by using thread-local cache
+	(all platforms). The implementation is in lfring\_cas1.h.
 
 * wCQ
 
